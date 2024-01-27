@@ -3,82 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Camera, Display, and Send Email</title>
-    <script src="https://smtpjs.com/v3/smtp.js"></script>
+    <title>بث مباشر</title>
 </head>
 <body>
+    <h1>بث مباشر عبر الإنترنت</h1>
 
-    <button onclick="startCamera()">Start Camera</button>
-    <button onclick="takeSnapshotAndSendEmail()">Take Snapshot and Send Email</button>
+    <video id="localVideo" autoplay playsinline></video>
+    <h2>البث المباشر</h2>
+    <video id="remoteVideo" autoplay playsinline></video>
 
-    <div style="position: relative;">
-        <video id="camera-feed" style="width: 100%;" autoplay onloadedmetadata="cameraLoaded()"></video>
-        <canvas id="snapshot-display" style="position: absolute; top: 0; left: 0; display: none;"></canvas>
-    </div>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
     <script>
-        let cameraStream;
-        let video;
-        let canvas;
+        const firebaseConfig = {
+            apiKey: "AIzaSyBwexlJSlgoY3SImLbu4eEzSerWjVfYSQc",
+            authDomain: "fofa-a3d88.firebaseapp.com",
+            databaseURL: "https://fofa-a3d88-default-rtdb.firebaseio.com",
+            projectId: "fofa-a3d88",
+            storageBucket: "fofa-a3d88.appspot.com",
+            messagingSenderId: "1056674781974",
+            appId: "1:1056674781974:web:13f6a196ac82e5e9ca0e37"
+        };
 
-        async function startCamera() {
-            try {
-                cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
-                video = document.getElementById('camera-feed');
-                canvas = document.getElementById('snapshot-display');
-                video.srcObject = cameraStream;
-            } catch (error) {
-                console.error('Error accessing camera:', error);
-                alert('Unable to access the camera. Please check your permissions.');
-            }
-        }
+        firebase.initializeApp(firebaseConfig);
 
-        function cameraLoaded() {
-            console.log('Camera loaded successfully.');
-        }
+        const database = firebase.database();
+        const localVideo = document.getElementById('localVideo');
+        const remoteVideo = document.getElementById('remoteVideo');
 
-        function takeSnapshotAndSendEmail() {
-            if (cameraStream) {
-                const context = canvas.getContext('2d');
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            .then((stream) => {
+                localVideo.srcObject = stream;
 
-                // Convert the canvas to a data URL representing a PNG image
-                const imageDataUrl = canvas.toDataURL('image/png');
+                const peerConnection = new RTCPeerConnection();
 
-                // Display the captured image on the canvas
-                canvas.style.display = 'block';
+                stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
-                // Send the image via email
-                sendEmail(imageDataUrl);
-            } else {
-                alert('Camera not accessible or not yet allowed.');
-            }
-        }
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        database.ref('candidates').push(JSON.stringify(event.candidate));
+                    }
+                };
 
-        function sendEmail(imageDataUrl) {
-            try {
-                Email.send({
-                    SecureToken: "cimi-pxyb-ubdw-krin",
-                    To: "productionzpr@gmail.com",
-                    From: "bitaplus8@gmail.com",
-                    Subject: "Hello, check out this image!",
-                    Body: "This is the message body. <br> <img src='" + imageDataUrl + "'>",
-                })
-                .then(function(response){
-                    console.log("Email sent successfully:", response);
-                })
-                .catch(function(error){
-                    console.error("Error sending email:", error);
-                    alert('Error sending email. Please check your connection and try again.');
-                });
-            } catch (error) {
-                console.error("Error sending email:", error);
-                alert('Error sending email. Please check your connection and try again.');
-            }
-        }
+                peerConnection.createOffer()
+                    .then(offer => peerConnection.setLocalDescription(offer))
+                    .then(() => {
+                        database.ref('offer').set(JSON.stringify(peerConnection.localDescription));
+                    })
+                    .catch(error => console.error("خطأ في إنشاء العرض:", error));
+            })
+            .catch(error => console.error("خطأ في الوصول إلى الوسائط:", error));
     </script>
-
 </body>
 </html>
