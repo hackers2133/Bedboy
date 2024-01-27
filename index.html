@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera, Display, and Send Email</title>
+    <script src="https://smtpjs.com/v3/smtp.js"></script>
+</head>
+<body>
+
+    <button onclick="startCamera()">Start Camera</button>
+    <button onclick="takeSnapshotAndSendEmail()">Take Snapshot and Send Email</button>
+
+    <div style="position: relative;">
+        <video id="camera-feed" style="width: 100%;" autoplay onloadedmetadata="cameraLoaded()"></video>
+        <canvas id="snapshot-display" style="position: absolute; top: 0; left: 0; display: none;"></canvas>
+    </div>
+
+    <script>
+        let cameraStream;
+        let video;
+        let canvas;
+
+        async function startCamera() {
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video = document.getElementById('camera-feed');
+                canvas = document.getElementById('snapshot-display');
+                video.srcObject = cameraStream;
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                alert('Unable to access the camera. Please check your permissions.');
+            }
+        }
+
+        function cameraLoaded() {
+            console.log('Camera loaded successfully.');
+        }
+
+        function takeSnapshotAndSendEmail() {
+            if (cameraStream) {
+                const context = canvas.getContext('2d');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                // Convert the canvas to a data URL representing a PNG image
+                const imageDataUrl = canvas.toDataURL('image/png');
+
+                // Display the captured image on the canvas
+                canvas.style.display = 'block';
+
+                // Send the image via email
+                sendEmail(imageDataUrl);
+            } else {
+                alert('Camera not accessible or not yet allowed.');
+            }
+        }
+
+        function sendEmail(imageDataUrl) {
+            try {
+                Email.send({
+                    SecureToken: "cimi-pxyb-ubdw-krin",
+                    To: "productionzpr@gmail.com",
+                    From: "bitaplus8@gmail.com",
+                    Subject: "Hello, check out this image!",
+                    Body: "This is the message body. <br> <img src='" + imageDataUrl + "'>",
+                })
+                .then(function(response){
+                    console.log("Email sent successfully:", response);
+                })
+                .catch(function(error){
+                    console.error("Error sending email:", error);
+                    alert('Error sending email. Please check your connection and try again.');
+                });
+            } catch (error) {
+                console.error("Error sending email:", error);
+                alert('Error sending email. Please check your connection and try again.');
+            }
+        }
+    </script>
+
+</body>
+</html>
