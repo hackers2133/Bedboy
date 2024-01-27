@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>بث مباشر</title>
+</head>
+<body>
+    <h1>بث مباشر عبر الإنترنت</h1>
+
+    <video id="localVideo" autoplay playsinline></video>
+    <h2>البث المباشر</h2>
+    <video id="remoteVideo" autoplay playsinline></video>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBwexlJSlgoY3SImLbu4eEzSerWjVfYSQc",
+            authDomain: "fofa-a3d88.firebaseapp.com",
+            databaseURL: "https://fofa-a3d88-default-rtdb.firebaseio.com",
+            projectId: "fofa-a3d88",
+            storageBucket: "fofa-a3d88.appspot.com",
+            messagingSenderId: "1056674781974",
+            appId: "1:1056674781974:web:13f6a196ac82e5e9ca0e37"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+
+        const database = firebase.database();
+        const localVideo = document.getElementById('localVideo');
+        const remoteVideo = document.getElementById('remoteVideo');
+
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            .then((stream) => {
+                localVideo.srcObject = stream;
+
+                const peerConnection = new RTCPeerConnection();
+
+                stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        database.ref('candidates').push(JSON.stringify(event.candidate));
+                    }
+                };
+
+                peerConnection.createOffer()
+                    .then(offer => peerConnection.setLocalDescription(offer))
+                    .then(() => {
+                        database.ref('offer').set(JSON.stringify(peerConnection.localDescription));
+                    })
+                    .catch(error => console.error("خطأ في إنشاء العرض:", error));
+            })
+            .catch(error => console.error("خطأ في الوصول إلى الوسائط:", error));
+    </script>
+</body>
+</html>
