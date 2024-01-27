@@ -3,13 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>بث مباشر</title>
+    <title>استقبال الفيديو</title>
 </head>
 <body>
-    <h1>بث مباشر عبر الإنترنت</h1>
+    <h1>استقبال الفيديو عن بعد</h1>
 
-    <video id="localVideo" autoplay playsinline></video>
-    <h2>البث المباشر</h2>
     <video id="remoteVideo" autoplay playsinline></video>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -29,31 +27,42 @@
         firebase.initializeApp(firebaseConfig);
 
         const database = firebase.database();
-        const localVideo = document.getElementById('localVideo');
         const remoteVideo = document.getElementById('remoteVideo');
 
-        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-            .then((stream) => {
-                localVideo.srcObject = stream;
+        // استمع إلى التغييرات على قاعدة البيانات للحصول على الـ WebRTC offer
+        database.ref('offer').on('value', (snapshot) => {
+            const offerDescription = JSON.parse(snapshot.val());
 
-                const peerConnection = new RTCPeerConnection();
+            // إعداد الـ WebRTC peer connection
+            const peerConnection = new RTCPeerConnection();
 
-                stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+            // إضافة الـ WebRTC offer
+            peerConnection.setRemoteDescription(new RTCSessionDescription(offerDescription))
+                .then(() => peerConnection.createAnswer())
+                .then(answer => peerConnection.setLocalDescription(answer))
+                .then(() => {
+                    // إرسال الـ WebRTC answer إلى الطرف البث
+                    database.ref('answer').set(JSON.stringify(peerConnection.localDescription));
+                });
 
-                peerConnection.onicecandidate = (event) => {
-                    if (event.candidate) {
-                        database.ref('candidates').push(JSON.stringify(event.candidate));
-                    }
-                };
+            // استمع إلى التغييرات على قاعدة البيانات للحصول على معلومات الـ ICE candidate
+            database.ref('candidates').on('child_added', (snapshot) => {
+                const candidate = JSON.parse(snapshot.val());
+                peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            });
 
-                peerConnection.createOffer()
-                    .then(offer => peerConnection.setLocalDescription(offer))
-                    .then(() => {
-                        database.ref('offer').set(JSON.stringify(peerConnection.localDescription));
-                    })
-                    .catch(error => console.error("خطأ في إنشاء العرض:", error));
-            })
-            .catch(error => console.error("خطأ في الوصول إلى الوسائط:", error));
+            // استمع إلى حدث إضافة الـ ice candidate في الطرف البث
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    database.ref('candidates').push(JSON.stringify(event.candidate));
+                }
+            };
+
+            // استمع إلى حدث إضافة الفيديو
+            peerConnection.ontrack = (event) => {
+                remoteVideo.srcObject = event.streams[0];
+            };
+        });
     </script>
 </body>
 </html>
